@@ -1,18 +1,19 @@
-export const config = {
-  api: { bodyParser: false },
-};
-
 import multer from "multer";
-import OpenAI from "openai";
 import fs from "fs";
+import OpenAI from "openai";
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 const upload = multer({ dest: "/tmp" });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export default function handler(req, res) {
-
-  // ✅ FIX CORS HEADERS
-  res.setHeader("Access-Control-Allow-Origin", "*");
+export default async function handler(req, res) {
+  // ✅ Vercel CORS FIX
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -20,7 +21,7 @@ export default function handler(req, res) {
   );
 
   if (req.method === "OPTIONS") {
-    return res.status(200).end();
+    return res.status(200).end(); 
   }
 
   if (req.method !== "POST") {
@@ -38,10 +39,10 @@ export default function handler(req, res) {
         file: fs.createReadStream(req.file.path),
       });
 
-      res.json({ text: result.text });
-    } catch (e) {
-      console.error("❌ Whisper backend Error:", e);
-      res.status(500).json({ error: "Transcription failed" });
+      return res.status(200).json({ text: result.text });
+    } catch (error) {
+      console.error("❌ Whisper backend error:", error);
+      return res.status(500).json({ error: "Transcription failed" });
     }
   });
 }
