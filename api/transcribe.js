@@ -1,49 +1,36 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import express from "express";
-import cors from "cors";
 import multer from "multer";
 import fs from "fs";
 import OpenAI from "openai";
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+export const config = {
+  api: {
+    bodyParser: false, // required for file uploads
+  },
+};
 
-// --- File uploads temp location
-const upload = multer({ dest: "uploads/" });
+// Use temp directory for files
+const upload = multer({ dest: "/tmp" });
 
-// --- OpenAI client
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+export default function handler(req, res) {
+  upload.single("file")(req, res, async (err) => {
+    if (err) return res.status(500).json({ error: "Upload error" });
 
-// --- Health check
-app.get("/", (req, res) => {
-  res.send("🚀 Whisper backend is live");
-});
+    try {
+      const client = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
 
-// --- Transcription endpoint
-app.post("/transcribe", upload.single("file"), async (req, res) => {
-  try {
-    const result = await client.audio.transcriptions.create({
-      file: fs.createReadStream(req.file.path),
-      model: "whisper-1",
-      response_format: "json"
-    });
+      const result = await client.audio.transcriptions.create({
+        file: fs.createReadStream(req.file.path),
+        model: "whisper-1",
+      });
 
-    res.json({ text: result.text });
+      res.status(200).json({ text: result.text });
 
-    // delete uploaded file
-    fs.unlinkSync(req.file.path);
-  } catch (error) {
-    console.error("❌ Whisper API Error:", error);
-    res.status(500).json({ error: "Transcription failed" });
-  }
-});
-
-// --- Start server
-app.listen(5000, () =>
-  console.log("✅ Whisper backend running at http://localhost:5000")
-);
+      fs.unlinkSync(req.file.path);
+    } catch (error) {
+      console.error("❌ Whisper API Error:", error);
+      res.status(500).json({ error: "Transcription failed" });
+    }
+  });
+}
