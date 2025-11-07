@@ -1,6 +1,6 @@
 import multer from "multer";
 import fs from "fs";
-import OpenAI from "openai";
+import { Deepgram } from "@deepgram/sdk";
 
 export const config = {
   api: {
@@ -9,10 +9,12 @@ export const config = {
 };
 
 const upload = multer({ dest: "/tmp" });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ✅ Deepgram client
+const deepgram = new Deepgram(process.env.DEEPGRAM_API_KEY);
 
 export default async function handler(req, res) {
-  // CORS FIX
+  // ✅ DO NOT REMOVE — CORS / preflight handling
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader(
@@ -20,7 +22,7 @@ export default async function handler(req, res) {
     "Content-Type, Authorization, X-Requested-With, session_id"
   );
 
- if (req.method === "OPTIONS") {
+  if (req.method === "OPTIONS") {
     console.log("✅ Preflight request handled");
     return res.status(200).end();
   }
@@ -29,7 +31,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  // ✅ Handle the audio upload
   upload.single("file")(req, res, async (err) => {
     if (err || !req.file) {
       console.error("❌ Multer upload error:", err);
@@ -39,28 +40,16 @@ export default async function handler(req, res) {
     try {
       console.log("✅ File received:", req.file.path);
 
-      const audioFile = fs.createReadStream(req.file.path);
+      const audioBuffer = fs.readFileSync(req.file.path);
 
-      // ✅ New GPT-4o audio transcription format
-      const result = await openai.chat.completions.create({
-        model: "gpt-4o-mini-transcribe",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_audio",
-                input_audio: {
-                  data: audioFile,
-                  format: "webm", // or wav
-                },
-              },
-            ],
-          },
-        ],
-      });
+      // ✅ Deepgram transcription
+      const response = await deepgram.transcription.preRecorded(
+        { buffer: audioBuffer, mimetype: "audio/webm" },
+        { model: "nova" }
+      );
 
-      const transcription = result.choices[0].message.content[0].text;
+      const transcription =
+        response?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
 
       console.log("🎤 Transcription:", transcription);
 
@@ -68,7 +57,7 @@ export default async function handler(req, res) {
 
       fs.unlinkSync(req.file.path); // cleanup temp file
     } catch (error) {
-      console.error("❌ Whisper backend error:", error);
+      console.error("❌ Transcription error:", error);
       return res.status(500).json({ error: "Transcription failed" });
     }
   });
