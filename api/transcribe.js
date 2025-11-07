@@ -5,44 +5,36 @@ import OpenAI from "openai";
 export const config = {
   api: {
     bodyParser: false,
-  },
+    sizeLimit: "50mb"
+  }
 };
 
 const upload = multer({ dest: "/tmp" });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export default async function handler(req, res) {
-  // ✅ Vercel CORS FIX
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, session_id"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end(); 
-  }
-
+export default function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  upload.single("file")(req, {}, async (err) => {
+  upload.single("file")(req, res, async (err) => {
     if (err || !req.file) {
       return res.status(400).json({ error: "File upload error" });
     }
 
     try {
-      const result = await openai.audio.transcriptions.create({
-        model: "whisper-1",
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const transcription = await openai.audio.transcriptions.create({
         file: fs.createReadStream(req.file.path),
+        model: "gpt-4o-mini-transcribe"
       });
 
-      return res.status(200).json({ text: result.text });
+      res.status(200).json({ text: transcription.text });
+
+      fs.unlinkSync(req.file.path);
     } catch (error) {
       console.error("❌ Whisper backend error:", error);
-      return res.status(500).json({ error: "Transcription failed" });
+      res.status(500).json({ error: "Transcription failed" });
     }
   });
 }
