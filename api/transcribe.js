@@ -11,7 +11,6 @@ export const config = {
 
 // ✅ Save incoming audio temporarily
 const upload = multer({ dest: "/tmp" });
-
 // ✅ Deepgram client (v3 SDK)
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
