@@ -10,6 +10,16 @@ const upload = multer({ dest: "/tmp" });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default function handler(req, res) {
+  // ✅ Handle pre-flight CORS requests
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    return res.status(200).end();
+  }
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
   }
@@ -28,7 +38,7 @@ export default function handler(req, res) {
       res.json({ text: result.text });
 
     } catch (e) {
-      console.error("❌ Whisper backend Error:", e);
+      console.error("🔥 Whisper API Error:", e);
       res.status(500).json({ error: "Transcription failed" });
     }
   });
