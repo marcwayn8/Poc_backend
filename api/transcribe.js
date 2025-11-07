@@ -43,11 +43,18 @@ export default async function handler(req, res) {
       const buffer = fs.readFileSync(req.file.path);
       fs.unlinkSync(req.file.path);
 
-      const response = await deepgram.listen.prerecorded.transcribeFile(buffer, {
-        model: "nova",
-        smart_format: true,
-        language: "en-US",
-      });
+      const response = await deepgram.listen.prerecorded.transcribeFile(
+        {
+          buffer,
+          mimetype: "audio/webm;codecs=opus"  
+        },
+        {
+          model: "nova",
+          model: "nova",
+          smart_format: true,
+          language: "en-US",
+        }
+      );
 
       const transcript =
         response?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
