@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "functions": {
     "api/transcribe.js": {
-      "runtime": "nodejs18.x",
+      "runtime": "vercel-nodejs@20",
       "maxDuration": 30,
       "memory": 2048
     }
