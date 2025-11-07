@@ -23,29 +23,26 @@ export default async function handler(req, res) {
     "Content-Type, Authorization, X-Requested-With, session_id"
   );
 
-  if (req.method === "OPTIONS") {
-    console.log("✅ Preflight request handled");
+ if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  // ✅ Handle file upload from Angular formData
   upload.single("file")(req, res, async (err) => {
     if (err || !req.file) {
-      console.error("❌ File upload failed:", err);
+      console.error("❌ File upload failed");
       return res.status(400).json({ error: "File upload failed" });
     }
 
     try {
-      console.log("🎤 Audio file received:", req.file.path);
+      console.log("📥 received file:", req.file);
 
-      // ✅ Read audio bytes
       const buffer = fs.readFileSync(req.file.path);
+      fs.unlinkSync(req.file.path);
 
-      // ✅ Send to Deepgram for transcription
       const response = await deepgram.listen.prerecorded.transcribeFile(buffer, {
         model: "nova",
         smart_format: true,
@@ -53,16 +50,13 @@ export default async function handler(req, res) {
       });
 
       const transcript =
-        response.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+        response?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
 
-      console.log("✅ Transcript:", transcript);
-
-      // ✅ Cleanup temporary file
-      fs.unlinkSync(req.file.path);
+      console.log("✅ Deepgram transcript:", transcript);
 
       return res.status(200).json({ text: transcript });
     } catch (error) {
-      console.error("❌ Deepgram Transcription Error:", error);
+      console.error("❌ Deepgram error:", error);
       return res.status(500).json({ error: "Transcription failed" });
     }
   });
