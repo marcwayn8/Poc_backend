@@ -1,24 +1,26 @@
-// api/transcribe.js (Vercel Serverless Function)
+// api/transcribe.js — Vercel Serverless Function
 
 import multer from "multer";
 import fs from "fs";
 import { AssemblyAI } from "assemblyai";
 
-// Required so Vercel does NOT try to parse multipart/form-data
+// ✅ Required so Vercel doesn't parse multipart (Angular requires this)
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
+// ✅ Save uploaded audio to tmp folder (allowed in Vercel)
 const upload = multer({ dest: "/tmp" });
 
+// ✅ Initialize AssemblyAI (v4 SDK)
 const client = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY,
 });
 
 export default function handler(req, res) {
-  // ✅ CORS (required for Angular dev mode)
+  // ✅ CORS
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader(
@@ -31,7 +33,7 @@ export default function handler(req, res) {
 
   upload.single("file")(req, res, async (err) => {
     if (err || !req.file) {
-      console.error("❌ File upload failed:", err);
+      console.error("❌ No file received:", err);
       return res.status(400).json({ error: "File upload failed" });
     }
 
@@ -40,20 +42,19 @@ export default function handler(req, res) {
     try {
       const buffer = fs.readFileSync(req.file.path);
 
-      const transcript = await client.transcripts.create({
-        audio: {
-          data: buffer,
-          mimeType: req.file.mimetype,  // ← THIS FIXES `startsWith` ERROR
-        },
+      // ✅ This is the ONLY format AssemblyAI v4 accepts for local/buffer
+      const transcript = await client.transcripts.transcribe({
+        audio: buffer,
+        language_code: "en_us",
         punctuate: true,
         format_text: true,
       });
 
-      console.log("✅ TRANSCRIPT:", transcript.text);
+      console.log("✅ TEXT:", transcript.text);
 
-      fs.unlinkSync(req.file.path); // Cleanup tmp file
+      fs.unlinkSync(req.file.path); // cleanup
 
-      return res.status(200).json({ text: transcript.text });
+      return res.status(200).json({ text: transcript.text || "" });
 
     } catch (error) {
       console.error("❌ AssemblyAI error:", error);
