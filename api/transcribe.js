@@ -46,13 +46,17 @@ export default async function handler(req, res) {
     try {
       const buffer = fs.readFileSync(req.file.path);
 
-      // ✅ NEW: WAV ready Deepgram API call
-      const response = await deepgram.listen.prerecorded.transcribeFile(buffer, {
-        model: "nova",
-        language: "en-US",
-        smart_format: true,
-        punctuate: true,
-      });
+     const response = await deepgram.listen.prerecorded.transcribeFile(
+        {
+          buffer,
+          mimetype: req.file.mimetype   
+        },
+        {
+          model: "nova",
+          smart_format: true,
+          language: "en-US",
+        }
+      );
 
       console.log("🔎 FULL DEEPGRAM RESPONSE >>>");
       console.log(JSON.stringify(response, null, 2));
