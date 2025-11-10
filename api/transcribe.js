@@ -1,77 +1,65 @@
-// api/transcribe.js  (Vercel Serverless Function)
-
 import multer from "multer";
 import fs from "fs";
-import { createClient } from "@deepgram/sdk";
+import AssemblyAI from "assemblyai";
 
-/** ✅ Required so Vercel doesn't try to parse the body */
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Required so we can handle raw FormData
   },
 };
 
-// ✅ Save uploaded audio temporarily (serverless safe)
+// ✅ Temp storage for uploaded recordings (Vercel allows /tmp)
 const upload = multer({ dest: "/tmp" });
 
-// ✅ Deepgram v3 client
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
+// ✅ AssemblyAI SDK client (API key comes from Vercel Environment Variables)
+const client = new AssemblyAI({
+  apiKey: process.env.ASSEMBLYAI_API_KEY,
+});
 
-export default async function handler(req, res) {
-  // ✅ CORS (prevents blocked requests in Angular)
+export default function handler(req, res) {
+  // ✅ CORS so Angular can call this
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, session_id"
+    "Content-Type, Authorization, session_id"
   );
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Only POST allowed" });
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
-
-  // ✅ Handle file upload from Angular
+  // ✅ Accept multipart/form-data with file
   upload.single("file")(req, res, async (err) => {
     if (err || !req.file) {
-      console.error("❌ No file received", err);
+      console.error("❌ No audio file received");
       return res.status(400).json({ error: "File upload failed" });
     }
 
-    console.log("📥 received file:", req.file);
-
     try {
-      const buffer = fs.readFileSync(req.file.path);
+      console.log("🎙️ AUDIO RECEIVED:", req.file);
 
-     const response = await deepgram.listen.prerecorded.transcribeFile(
-        {
-          buffer,
-          mimetype: req.file.mimetype || "audio/webm",
-        },
-        {
-          model: "nova",
-          smart_format: true,
-          language: "en-US",
-        }
-      );
+      // Read audio file to send to AssemblyAI
+      const audioBuffer = fs.readFileSync(req.file.path);
 
-      console.log("🔎 FULL DEEPGRAM RESPONSE >>>");
-      console.log(JSON.stringify(response, null, 2));
+      // ✅ Upload file to AssemblyAI
+      const uploadResponse = await client.files.upload(audioBuffer);
+      console.log("⬆️ Uploaded to Assembly:", uploadResponse.upload_url);
 
-      const transcript =
-        response?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+      // ✅ Send transcription request
+      const transcript = await client.transcripts.transcribe({
+        audio_url: uploadResponse.upload_url,
+        language_code: "en_us",
+        punctuate: true,
+      });
 
-      console.log("✅ TRANSCRIPT:", transcript);
+      console.log("✅ TRANSCRIPT:", transcript.text);
 
-      fs.unlinkSync(req.file.path); // cleanup tmp file
+      // Cleanup temp audio file
+      fs.unlinkSync(req.file.path);
 
-      return res.status(200).json({ text: transcript });
-
+      return res.status(200).json({ text: transcript.text });
     } catch (error) {
-      console.error("❌ Deepgram error:", error);
+      console.error("❌ AssemblyAI error:", error);
       return res.status(500).json({ error: "Transcription failed" });
     }
   });
