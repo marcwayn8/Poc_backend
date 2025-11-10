@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     try {
       const buffer = fs.readFileSync(req.file.path);
 
-      const transcript = await client.transcripts.transcribeFile(
+      const transcript = await client.transcripts.transcribe(
         buffer,
         {
           language: "en",
