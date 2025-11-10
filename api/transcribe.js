@@ -56,8 +56,13 @@ export default async function handler(req, res) {
         }
       );
 
+      console.log("🔎 FULL DEEPGRAM RESPONSE >>>");
+      console.dir(response, { depth: null });
+
       const transcript =
         response?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+      console.log("✅ TRANSCRIPT:", transcript);
+
 
       console.log("✅ Deepgram transcript:", transcript);
 
