@@ -49,7 +49,7 @@ export default async function handler(req, res) {
      const response = await deepgram.listen.prerecorded.transcribeFile(
         {
           buffer,
-          mimetype: req.file.mimetype   
+          mimetype: req.file.mimetype || "audio/webm",
         },
         {
           model: "nova",
