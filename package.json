@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-"dependencies": {
-  "@deepgram/sdk": "^3.2.0",
-  "multer": "1.4.5-lts.1"
-}
+  "dependencies": {
+    "@deepgram/sdk": "^3.2.0",
+    "assemblyai": "^4.19.0",
+    "multer": "1.4.5-lts.1"
+  }
 }
